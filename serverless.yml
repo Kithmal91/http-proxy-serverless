@@ -1,0 +1,82 @@
+service: serverless-http-proxy
+
+provider:
+  name: aws
+  runtime: nodejs10.x
+
+  stage: dev
+  region: us-east-1
+
+custom:
+  currentStage: ${opt:stage, self:provider.stage}
+  authArn:
+    dev: arn:aws:lambda:us-east-1:305892410551:function:sinorbis-zapier-oauth2-authorizer-dev-oauth2
+    qa: arn:aws:lambda:ap-southeast-2:808902307344:function:sinorbis-zapier-oauth2-authorizer-qa-oauth2
+    prod: arn:aws:lambda:ap-southeast-2:808902307344:function:sinorbis-zapier-oauth2-authorizer-prod-oauth2
+  uri:
+    dev: http://dev.com/{proxy}
+    qa: http://qa.com/{proxy}
+    prod: https://prod.com/{proxy}
+
+resources:
+  Resources:
+    ApiGatewayRestApi:
+      Type: AWS::ApiGateway::RestApi
+      Properties:
+        Name: ${self:custom.currentStage}-serverless-http-proxy
+        Description: 'The main entry point of test APIs'
+    MainApiBasePath:
+      Type: AWS::ApiGateway::Resource
+      Properties:
+        ParentId:
+          Fn::GetAtt:
+            - ApiGatewayRestApi
+            - RootResourceId
+        PathPart: 'demo-proxy'
+        RestApiId:
+          Ref: ApiGatewayRestApi
+    MainApiProxyPath:
+      Type: AWS::ApiGateway::Resource
+      Properties:
+        ParentId:
+          Ref: MainApiBasePath
+        PathPart: '{proxy+}'
+        RestApiId:
+          Ref: ApiGatewayRestApi
+    MainApiProxyAnyMethod:
+      Type: AWS::ApiGateway::Method
+      Properties:
+        AuthorizationType: CUSTOM
+        AuthorizerId: !Ref ApiGatewayAuthorizer
+        HttpMethod: GET
+        Integration:
+          IntegrationHttpMethod: ANY
+          Type: HTTP_PROXY
+          Uri:  ${self:custom.uri.${self:custom.currentStage}}
+          PassthroughBehavior: WHEN_NO_MATCH
+          RequestParameters:
+            'integration.request.path.proxy': 'method.request.path.proxy'
+        MethodResponses:
+          - StatusCode: 200
+        RequestParameters:
+          'method.request.path.proxy': true
+        ResourceId:
+          Ref: MainApiProxyPath
+        RestApiId:
+          Ref: ApiGatewayRestApi
+    ApiGatewayAuthorizer:
+      Type: AWS::ApiGateway::Authorizer
+      Properties:
+        AuthorizerResultTtlInSeconds: 0
+        AuthorizerUri:
+          Fn::Join:
+            - ''
+            - - 'arn:aws:apigateway:'
+              - Ref: "AWS::Region"
+              - ':lambda:path/2015-03-31/functions/'
+              - ${self:custom.authArn.${self:custom.currentStage}}
+              - "/invocations"
+        IdentitySource: method.request.header.Authorization
+        RestApiId: !Ref ApiGatewayRestApi
+        Type: TOKEN
+        Name: oauth2-${self:custom.currentStage}-authorizer
