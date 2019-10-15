@@ -10,9 +10,9 @@ provider:
 custom:
   currentStage: ${opt:stage, self:provider.stage}
   authArn:
-    dev: arn:aws:lambda:us-east-1:305892410551:function:sinorbis-zapier-oauth2-authorizer-dev-oauth2
-    qa: arn:aws:lambda:ap-southeast-2:808902307344:function:sinorbis-zapier-oauth2-authorizer-qa-oauth2
-    prod: arn:aws:lambda:ap-southeast-2:808902307344:function:sinorbis-zapier-oauth2-authorizer-prod-oauth2
+    dev: <add dev custom authorizer arn>
+    qa: <add qa custom authorizer arn>
+    prod: <add prod custom authorizer arn>
   uri:
     dev: http://dev.com/{proxy}
     qa: http://qa.com/{proxy}
